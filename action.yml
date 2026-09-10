@@ -48,6 +48,12 @@ runs:
           git rm -r --ignore-unmatch .
         fi
         cp -a "$SKILLZ_OUTPUT"/. .
+        # Plugin repositories commonly ignore harness-local dot directories.
+        # These are the generated marketplace catalogs, so stage them explicitly
+        # without force-adding unrelated ignored workspace state such as .skillz/.
         git add --all
+        for path in .claude-plugin .agents claude codex package.json dist README.md LICENSE opencode.json scripts skills agents commands tools; do
+          if [ -e "$path" ]; then git add --force -- "$path"; fi
+        done
         git commit --allow-empty -m "build(skillz): ${GITHUB_SHA}"
         git push origin "HEAD:refs/heads/$BRANCH"
