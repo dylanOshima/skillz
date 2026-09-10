@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use crate::cli::{BuildArgs, InitArgs};
 
@@ -136,7 +137,10 @@ pub fn init(args: &InitArgs) -> Result<()> {
     fs::create_dir_all(workflow_path.parent().expect("workflow parent"))?;
     fs::write(&workflow_path, workflow_template())?;
     append_gitignore(&cwd.join(".gitignore"))?;
-    fs::write(cwd.join("INSTALL.md"), install_doc(&config))?;
+    fs::write(
+        cwd.join("INSTALL.md"),
+        install_doc(&config, repository_slug(&cwd)),
+    )?;
     println!("Added Skillz support to {}", cwd.display());
     println!("  source: {}", args.source.as_str());
     println!("  config: {}", config_path.display());
@@ -400,17 +404,37 @@ fn append_gitignore(path: &Path) -> Result<()> {
     }
     Ok(())
 }
-fn install_doc(config: &Config) -> String {
+fn repository_slug(cwd: &Path) -> Option<String> {
+    let output = Command::new("git")
+        .args(["config", "--get", "remote.origin.url"])
+        .current_dir(cwd)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let url = String::from_utf8(output.stdout).ok()?;
+    let normalized = url.trim().trim_end_matches(".git");
+    normalized
+        .rsplit_once("github.com/")
+        .map(|(_, slug)| slug.to_string())
+}
+
+fn install_doc(config: &Config, repository: Option<String>) -> String {
+    let repository = repository.unwrap_or_else(|| "OWNER/REPO".to_string());
     format!(
-        "# Install {}\n\nAfter the first push, install the generated build from the `{}` branch.\n\n- Claude: `claude plugin marketplace add OWNER/REPO@{}` then `claude plugin install {}@{}`\n- Codex: add `OWNER/REPO` at the `{}` ref as a marketplace, then install `{}` from `{}`.\n- OpenCode: `opencode plugin add 'github:OWNER/REPO#{}::path:opencode' --global`\n",
+        "# Install {}\n\nAfter the first push, install the generated build from the `{}` branch.\n\n- Claude: `claude plugin marketplace add {}@{}` then `claude plugin install {}@{}`\n- Codex: `codex plugin marketplace add {} --ref {}` then `codex plugin add {}@{}`.\n- OpenCode: `opencode plugin add 'github:{}#{}::path:opencode' --global`\n",
         config.plugin.name,
         config.publish.branch,
-        config.publish.branch,
-        config.plugin.name,
-        config.plugin.marketplace.clone().unwrap_or_default(),
+        repository,
         config.publish.branch,
         config.plugin.name,
         config.plugin.marketplace.clone().unwrap_or_default(),
+        repository,
+        config.publish.branch,
+        config.plugin.name,
+        config.plugin.marketplace.clone().unwrap_or_default(),
+        repository,
         config.publish.branch
     )
 }
