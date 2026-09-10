@@ -169,7 +169,14 @@ pub fn build(args: &BuildArgs) -> Result<()> {
     let skills = config.paths.skills.as_ref().map(|p| cwd.join(p));
     let mut diagnostics = Vec::new();
     for target in &config.targets {
-        let target_dir = output.join(target.as_str());
+        // OpenCode V1 installs Git packages from the repository root. Keeping the
+        // package there also lets Claude/Codex marketplace catalogs reference
+        // their own subdirectories without a second distribution repository.
+        let target_dir = if *target == Harness::Opencode {
+            output.clone()
+        } else {
+            output.join(target.as_str())
+        };
         match target {
             Harness::Opencode if config.source == Harness::Opencode => {
                 copy_opencode(&source, &target_dir)?
@@ -424,7 +431,7 @@ fn repository_slug(cwd: &Path) -> Option<String> {
 fn install_doc(config: &Config, repository: Option<String>) -> String {
     let repository = repository.unwrap_or_else(|| "OWNER/REPO".to_string());
     format!(
-        "# Install {}\n\nAfter the first push, install the generated build from the `{}` branch.\n\n- Claude: `claude plugin marketplace add {}@{}` then `claude plugin install {}@{}`\n- Codex: `codex plugin marketplace add {} --ref {}` then `codex plugin add {}@{}`.\n- OpenCode: `opencode plugin add 'github:{}#{}::path:opencode' --global`\n",
+        "# Install {}\n\nAfter the first push, install the generated build from the `{}` branch.\n\n- Claude: `claude plugin marketplace add {}@{}` then `claude plugin install {}@{}`\n- Codex: `codex plugin marketplace add {} --ref {}` then `codex plugin add {}@{}`.\n- OpenCode: `opencode plugin add 'github:{}#{}' --global`\n",
         config.plugin.name,
         config.publish.branch,
         repository,
@@ -505,6 +512,6 @@ mod tests {
         env::set_current_dir(old).unwrap();
         assert!(root.join("out/claude/.claude-plugin/plugin.json").exists());
         assert!(root.join("out/codex/.codex-plugin/plugin.json").exists());
-        assert!(root.join("out/opencode/package.json").exists());
+        assert!(root.join("out/package.json").exists());
     }
 }

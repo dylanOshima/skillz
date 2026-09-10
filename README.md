@@ -36,7 +36,7 @@ The output has the following layout:
 ├── .agents/plugins/marketplace.json
 ├── claude/
 ├── codex/
-├── opencode/
+├── package.json + dist/       # OpenCode install root
 └── skillz-report.json
 ```
 
