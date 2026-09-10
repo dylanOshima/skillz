@@ -449,7 +449,7 @@ fn repository_slug(cwd: &Path) -> Option<String> {
 fn install_doc(config: &Config, repository: Option<String>) -> String {
     let repository = repository.unwrap_or_else(|| "OWNER/REPO".to_string());
     format!(
-        "# Install {}\n\nAfter the first push, install the generated build from the `{}` branch.\n\n- Claude: `claude plugin marketplace add {}@{}` then `claude plugin install {}@{}`\n- Codex: `codex plugin marketplace add {} --ref {}` then `codex plugin add {}@{}`.\n- OpenCode: `opencode plugin add 'github:{}#{}' --global`\n",
+        "# Install {}\n\nAfter the first push, install the generated build from the `{}` branch.\n\n- Claude: `claude plugin marketplace add {}@{}` then `claude plugin install {}@{}`\n- Codex: `codex plugin marketplace add {} --ref {}` then `codex plugin add {}@{}`.\n- OpenCode: run `mkdir -p \"$HOME/.config/opencode/plugins\" && git clone --depth 1 --branch {} https://github.com/{}.git \"$HOME/.config/opencode/plugins/{}\"`, then `opencode plugin \"file://$HOME/.config/opencode/plugins/{}\" --global`. OpenCode's Git-package installer currently fails for this class of dependency; the checked-out generated branch is its supported file-plugin input.\n",
         config.plugin.name,
         config.publish.branch,
         repository,
@@ -460,8 +460,10 @@ fn install_doc(config: &Config, repository: Option<String>) -> String {
         config.publish.branch,
         config.plugin.name,
         config.plugin.marketplace.clone().unwrap_or_default(),
+        config.publish.branch,
         repository,
-        config.publish.branch
+        config.plugin.name,
+        config.plugin.name,
     )
 }
 fn workflow_template() -> &'static str {
