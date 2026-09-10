@@ -281,7 +281,18 @@ fn render_opencode_shell(
 
 fn copy_opencode(source: &Path, target: &Path) -> Result<()> {
     fs::create_dir_all(target)?;
-    for name in ["package.json", "README.md", "LICENSE", "opencode.json"] {
+    // Preserve the source lockfile. OpenCode installs Git plugins through npm's
+    // Arborist; without this lockfile it resolves the plugin's development
+    // dependencies during Git dependency preparation, making builds both
+    // non-reproducible and sensitive to later registry releases.
+    for name in [
+        "package.json",
+        "package-lock.json",
+        "npm-shrinkwrap.json",
+        "README.md",
+        "LICENSE",
+        "opencode.json",
+    ] {
         let from = source.join(name);
         if from.is_file() {
             fs::copy(&from, target.join(name))?;
@@ -501,6 +512,7 @@ mod tests {
         fs::create_dir_all(root.join("dist")).unwrap();
         fs::write(root.join("dist/index.js"), "export {};\n").unwrap();
         fs::write(root.join("package.json"), "{\"name\":\"example\"}").unwrap();
+        fs::write(root.join("package-lock.json"), "{\"lockfileVersion\":3}").unwrap();
         fs::write(root.join("skillz.yaml"), "version: 1\nsource: opencode\ntargets: [claude, codex, opencode]\nplugin:\n  name: example\n  description: Example\npaths:\n  source: .\n  skills: dist/skills\npolicy:\n  unsupported: warn\n").unwrap();
         let old = env::current_dir().unwrap();
         env::set_current_dir(root).unwrap();
@@ -513,5 +525,6 @@ mod tests {
         assert!(root.join("out/claude/.claude-plugin/plugin.json").exists());
         assert!(root.join("out/codex/.codex-plugin/plugin.json").exists());
         assert!(root.join("out/package.json").exists());
+        assert!(root.join("out/package-lock.json").exists());
     }
 }
