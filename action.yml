@@ -25,7 +25,7 @@ runs:
       run: |
         set -euo pipefail
         cd "$GITHUB_WORKSPACE"
-        cargo run --quiet --manifest "$GITHUB_ACTION_PATH/Cargo.toml" -- build --config "$SKILLZ_CONFIG" --output "$SKILLZ_OUTPUT"
+        cargo run --quiet --manifest-path "$GITHUB_ACTION_PATH/Cargo.toml" -- build --config "$SKILLZ_CONFIG" --output "$SKILLZ_OUTPUT"
     - name: Publish generated distribution branch
       if: inputs.mode == 'publish'
       shell: bash
