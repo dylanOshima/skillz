@@ -1,13 +1,5 @@
-mod agent;
 mod cli;
-mod commands;
-mod config;
-mod generator;
-mod install;
-mod models;
-mod renderer;
-mod state;
-mod utils;
+mod project;
 
 fn main() {
     if let Err(err) = cli::run() {

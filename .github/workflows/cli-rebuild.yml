@@ -1,4 +1,4 @@
-name: CLI Rebuild
+name: Skillz verification
 
 on:
   push:
@@ -6,12 +6,14 @@ on:
       - "src/**"
       - "Cargo.toml"
       - "Cargo.lock"
+      - "action.yml"
       - ".github/workflows/cli-rebuild.yml"
   pull_request:
     paths:
       - "src/**"
       - "Cargo.toml"
       - "Cargo.lock"
+      - "action.yml"
       - ".github/workflows/cli-rebuild.yml"
   workflow_dispatch:
 
@@ -38,7 +40,7 @@ jobs:
       - name: Verify formatting
         run: cargo fmt --check
 
-      - name: Build CLI
+      - name: Build Skillz
         run: cargo build --verbose
 
       - name: Run tests

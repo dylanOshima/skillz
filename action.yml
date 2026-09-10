@@ -1,0 +1,53 @@
+name: Skillz
+description: Build and publish cross-harness Claude, Codex, and OpenCode plugin packages.
+inputs:
+  mode:
+    description: build uploads a generated tree; publish writes it to the configured distribution branch.
+    required: false
+    default: build
+  config:
+    description: Path to the repository-owned Skillz configuration.
+    required: false
+    default: skillz.yaml
+  output:
+    description: Workspace-relative generated output path.
+    required: false
+    default: .skillz/build
+runs:
+  using: composite
+  steps:
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Build generated plugin packages
+      shell: bash
+      env:
+        SKILLZ_CONFIG: ${{ inputs.config }}
+        SKILLZ_OUTPUT: ${{ inputs.output }}
+      run: |
+        set -euo pipefail
+        cd "$GITHUB_WORKSPACE"
+        cargo run --quiet --manifest "$GITHUB_ACTION_PATH/Cargo.toml" -- build --config "$SKILLZ_CONFIG" --output "$SKILLZ_OUTPUT"
+    - name: Publish generated distribution branch
+      if: inputs.mode == 'publish'
+      shell: bash
+      env:
+        SKILLZ_CONFIG: ${{ inputs.config }}
+        SKILLZ_OUTPUT: ${{ inputs.output }}
+      run: |
+        set -euo pipefail
+        cd "$GITHUB_WORKSPACE"
+        BRANCH="$(sed -n '/^publish:/,/^[^ ]/ s/^  branch:[[:space:]]*//p' "$SKILLZ_CONFIG" | head -n 1)"
+        BRANCH="${BRANCH:-skillz-build}"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+          git fetch origin "$BRANCH"
+          git switch --force-create "$BRANCH" "origin/$BRANCH"
+          git rm -r --ignore-unmatch .
+        else
+          git switch --orphan "$BRANCH"
+          git rm -r --ignore-unmatch .
+        fi
+        cp -a "$SKILLZ_OUTPUT"/. .
+        git add --all
+        git commit --allow-empty -m "build(skillz): ${GITHUB_SHA}"
+        git push origin "HEAD:refs/heads/$BRANCH"

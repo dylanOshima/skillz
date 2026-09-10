@@ -2,95 +2,61 @@ use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
-use crate::commands;
-use crate::config::AppContext;
-use crate::models::{AgentKind, InstallTarget};
+use crate::project::{self, Harness};
 
 #[derive(Debug, Parser)]
 #[command(
     name = "skillz",
     version,
-    about = "Cross-agent skill manager for Codex and Claude"
+    about = "Cross-harness plugin onboarding and build tool"
 )]
 pub struct Cli {
-    #[arg(long, global = true)]
-    pub root: Option<PathBuf>,
-
-    #[arg(long, global = true, value_enum)]
-    pub agent: Option<AgentKind>,
-
-    #[arg(long, global = true)]
-    pub yes: bool,
-
     #[command(subcommand)]
     pub command: Commands,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    #[command(name = "create", visible_alias = "Create")]
-    Create(CreateArgs),
-
-    #[command(name = "update", visible_alias = "Update")]
-    Update(UpdateArgs),
-
-    #[command(name = "delete", visible_alias = "Delete")]
-    Delete(DeleteArgs),
-
-    #[command(name = "list", visible_alias = "List")]
-    List(ListArgs),
+    /// Add Skillz configuration and a GitHub workflow to a plugin repository.
+    Init(InitArgs),
+    /// Render all enabled harness packages from the configured source tree.
+    Build(BuildArgs),
 }
 
 #[derive(Debug, Args)]
-pub struct CreateArgs {
+pub struct InitArgs {
+    /// Native harness that owns the source files.
+    #[arg(long, value_enum)]
+    pub source: Harness,
+    /// Plugin display/installation name. Defaults to the current directory name.
     #[arg(long)]
     pub name: Option<String>,
-
+    /// Short plugin description used in generated manifests.
     #[arg(long)]
-    pub intent: Option<String>,
-
-    #[arg(long, value_enum)]
-    pub install: Option<InstallTarget>,
-
+    pub description: Option<String>,
+    /// Path to the native source root, relative to the project directory.
+    #[arg(long, default_value = ".")]
+    pub source_path: PathBuf,
+    /// Path to portable skills, relative to the project directory.
     #[arg(long)]
-    pub alias: Option<String>,
-
-    #[arg(long, value_enum)]
-    pub agent: Option<AgentKind>,
+    pub skills_path: Option<PathBuf>,
+    /// Overwrite a pre-existing skillz.yaml or workflow.
+    #[arg(long)]
+    pub force: bool,
 }
 
 #[derive(Debug, Args)]
-pub struct UpdateArgs {
-    #[arg(long)]
-    pub name: Option<String>,
-
-    #[arg(long)]
-    pub request: Option<String>,
-
-    #[arg(long, value_enum)]
-    pub agent: Option<AgentKind>,
+pub struct BuildArgs {
+    #[arg(long, default_value = "skillz.yaml")]
+    pub config: PathBuf,
+    /// Generated output directory. CI sets this to a temporary directory.
+    #[arg(long, default_value = ".skillz/build")]
+    pub output: PathBuf,
 }
-
-#[derive(Debug, Args)]
-pub struct DeleteArgs {
-    #[arg(long)]
-    pub name: Option<String>,
-
-    #[arg(long)]
-    pub yes: bool,
-}
-
-#[derive(Debug, Args, Default)]
-pub struct ListArgs {}
 
 pub fn run() -> Result<()> {
-    let cli = Cli::parse();
-    let ctx = AppContext::load(cli.root.clone())?;
-
-    match cli.command {
-        Commands::Create(args) => commands::create::run(&ctx, &args, cli.agent),
-        Commands::Update(args) => commands::update::run(&ctx, &args, cli.agent),
-        Commands::Delete(args) => commands::delete::run(&ctx, &args, cli.yes),
-        Commands::List(args) => commands::list::run(&ctx, &args),
+    match Cli::parse().command {
+        Commands::Init(args) => project::init(&args),
+        Commands::Build(args) => project::build(&args),
     }
 }
