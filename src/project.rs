@@ -417,6 +417,7 @@ fn repository_slug(cwd: &Path) -> Option<String> {
     let normalized = url.trim().trim_end_matches(".git");
     normalized
         .rsplit_once("github.com/")
+        .or_else(|| normalized.rsplit_once("github.com:"))
         .map(|(_, slug)| slug.to_string())
 }
 
