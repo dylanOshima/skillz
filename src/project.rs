@@ -281,23 +281,30 @@ fn render_opencode_shell(
 
 fn copy_opencode(source: &Path, target: &Path) -> Result<()> {
     fs::create_dir_all(target)?;
-    // Preserve the source lockfile. OpenCode installs Git plugins through npm's
-    // Arborist; without this lockfile it resolves the plugin's development
-    // dependencies during Git dependency preparation, making builds both
-    // non-reproducible and sensitive to later registry releases.
-    for name in [
-        "package.json",
-        "package-lock.json",
-        "npm-shrinkwrap.json",
-        "README.md",
-        "LICENSE",
-        "opencode.json",
-    ] {
+    for name in ["README.md", "LICENSE", "opencode.json"] {
         let from = source.join(name);
         if from.is_file() {
             fs::copy(&from, target.join(name))?;
         }
     }
+    let package_path = source.join("package.json");
+    let mut package: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(&package_path)
+            .with_context(|| format!("reading {}", package_path.display()))?,
+    )?;
+    let object = package
+        .as_object_mut()
+        .context("OpenCode package.json must be a JSON object")?;
+    // A generated distribution contains compiled runtime files. Development
+    // dependencies and lifecycle scripts would make npm prepare a source tree
+    // that is intentionally absent from the generated branch.
+    object.remove("devDependencies");
+    object.remove("scripts");
+    object.remove("packageManager");
+    fs::write(
+        target.join("package.json"),
+        serde_json::to_string_pretty(&package)?,
+    )?;
     let ignored = BTreeSet::from([
         "node_modules".to_string(),
         ".git".to_string(),
@@ -512,7 +519,6 @@ mod tests {
         fs::create_dir_all(root.join("dist")).unwrap();
         fs::write(root.join("dist/index.js"), "export {};\n").unwrap();
         fs::write(root.join("package.json"), "{\"name\":\"example\"}").unwrap();
-        fs::write(root.join("package-lock.json"), "{\"lockfileVersion\":3}").unwrap();
         fs::write(root.join("skillz.yaml"), "version: 1\nsource: opencode\ntargets: [claude, codex, opencode]\nplugin:\n  name: example\n  description: Example\npaths:\n  source: .\n  skills: dist/skills\npolicy:\n  unsupported: warn\n").unwrap();
         let old = env::current_dir().unwrap();
         env::set_current_dir(root).unwrap();
@@ -525,6 +531,9 @@ mod tests {
         assert!(root.join("out/claude/.claude-plugin/plugin.json").exists());
         assert!(root.join("out/codex/.codex-plugin/plugin.json").exists());
         assert!(root.join("out/package.json").exists());
-        assert!(root.join("out/package-lock.json").exists());
+        let package: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(root.join("out/package.json")).unwrap())
+                .unwrap();
+        assert!(package.get("devDependencies").is_none());
     }
 }
