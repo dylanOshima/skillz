@@ -22,10 +22,17 @@ runs:
       env:
         SKILLZ_CONFIG: ${{ inputs.config }}
         SKILLZ_OUTPUT: ${{ inputs.output }}
+        SKILLZ_MODE: ${{ inputs.mode }}
       run: |
         set -euo pipefail
         cd "$GITHUB_WORKSPACE"
-        cargo run --quiet --manifest-path "$GITHUB_ACTION_PATH/Cargo.toml" -- build --config "$SKILLZ_CONFIG" --output "$SKILLZ_OUTPUT"
+        if [ "$SKILLZ_MODE" = "publish" ]; then
+          BUILD_OUTPUT="$RUNNER_TEMP/skillz-build"
+        else
+          BUILD_OUTPUT="$GITHUB_WORKSPACE/$SKILLZ_OUTPUT"
+        fi
+        cargo run --quiet --manifest-path "$GITHUB_ACTION_PATH/Cargo.toml" -- build --config "$SKILLZ_CONFIG" --output "$BUILD_OUTPUT"
+        echo "SKILLZ_BUILD_OUTPUT=$BUILD_OUTPUT" >> "$GITHUB_ENV"
     - name: Publish generated distribution branch
       if: inputs.mode == 'publish'
       shell: bash
@@ -47,7 +54,7 @@ runs:
           git switch --orphan "$BRANCH"
           git rm -r --ignore-unmatch .
         fi
-        cp -a "$SKILLZ_OUTPUT"/. .
+        cp -a "$SKILLZ_BUILD_OUTPUT"/. .
         # Plugin repositories commonly ignore harness-local dot directories.
         # These are the generated marketplace catalogs, so stage them explicitly
         # without force-adding unrelated ignored workspace state such as .skillz/.
